@@ -1,0 +1,42 @@
+name: Build Playnite plugin
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
+
+      - name: Restore NuGet packages
+        run: nuget restore SteamServerBrowser.csproj -PackagesDirectory packages
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build
+        run: msbuild SteamServerBrowser.csproj /p:Configuration=Release /p:Platform=AnyCPU
+
+      - name: Create Playnite package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path package | Out-Null
+          Copy-Item extension.yaml package/extension.yaml
+          Copy-Item bin/Release/SteamServerBrowser.dll package/SteamServerBrowser.dll
+          Copy-Item icon.png package/icon.png
+          Compress-Archive -Path package/* -DestinationPath SteamServerBrowser.zip -Force
+          Rename-Item SteamServerBrowser.zip SteamServerBrowser.pext
+
+      - name: Upload plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: Steam-Server-Browser
+          path: SteamServerBrowser.pext
